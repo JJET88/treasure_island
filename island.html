@@ -567,11 +567,13 @@
 
 /* ================= Scene / game state ================= */
 var sceneState='ship';
-var unlocked={ship:true, island:false, lighthouse:false, tower:false};
+var unlocked={ship:true, hold:true, island:false, cave:false, lighthouse:false, tower:false};
 var clueCount=0, totalClues=6, treasureCount=0, totalTreasures=3, attempts=3, maxAttempts=3;
 var diggingUnlocked=false, gameEnded=false, pendingChestId=null;
 var islandFlying=false;   // true during the victory fly-out, when the camera leaves the ground
 var LIGHTHOUSE={x:0,z:-15};
+var CAVE={x:0, y:-40, z:-100, gateOpen:false, idolClaimed:false, lit:[], seq:['deep','flame','anchor','skull']};
+var HOLD={x:0, y:-60, z:78, pumped:0, NEED_PUMPS:5, drained:false, boxOpened:false, boxClaimed:false};
 /* The tower interior you climb: a spiral stair round a central newel, staged directly beneath the
    lighthouse (you enter and leave it by doors, so it can be roomier than the slim exterior).
    Angles: x=cos(a), z=sin(a) about the centre; the stair rises with increasing angle. */
@@ -649,6 +651,21 @@ AFRAME.registerComponent('player-bounds',{
       var dx2=p.x-LIGHTHOUSE.x, dz2=p.z-LIGHTHOUSE.z, d2=Math.hypot(dx2,dz2), Rmax=2.05, Rmin=0.85;
       if(d2>Rmax){ p.x=LIGHTHOUSE.x+dx2/d2*Rmax; p.z=LIGHTHOUSE.z+dz2/d2*Rmax; }
       else if(d2<Rmin && d2>0.001){ p.x=LIGHTHOUSE.x+dx2/d2*Rmin; p.z=LIGHTHOUSE.z+dz2/d2*Rmin; }
+    } else if(sceneState==='cave'){
+      var cx=p.x-CAVE.x, cz=p.z-CAVE.z;
+      if(!CAVE.gateOpen && cz>4.5) cz=4.5;
+      if(cz>4.5){
+        p.x=Math.max(CAVE.x-2.7, Math.min(CAVE.x+2.7, p.x));
+        p.z=Math.max(CAVE.z-7.2, Math.min(CAVE.z+12.4, p.z));
+      } else {
+        var cr=Math.hypot(cx, cz+1.2);
+        if(cr>7.1){ p.x=CAVE.x+(cx/cr)*7.1; p.z=(CAVE.z-1.2)+((cz+1.2)/cr)*7.1; }
+      }
+      p.y=CAVE.y+1.6;
+    } else if(sceneState==='hold'){
+      p.x=Math.max(-3.0, Math.min(3.0, p.x));
+      p.z=Math.max(HOLD.z-8.0, Math.min(HOLD.z+8.0, p.z));
+      p.y=HOLD.y+1.6;
     }
     if(sceneState!=='tower') this.tTheta=null;
     this.lastScene=sceneState;
@@ -1978,18 +1995,23 @@ AFRAME.registerComponent('wheel-spin',{
       <a-box width="0.08" height="0.06" depth="3.0" position="0 0.52 0" material="color:#3a2616;roughness:1"></a-box>
     </a-entity>
 
-    <!-- cargo hatch grating -->
-    <a-entity position="0 0 79.6">
-      <a-box width="2.1" height="0.2" depth="1.5" position="0 0.1 0" material="color:#3a2616;roughness:1"></a-box>
-      <a-plane width="1.8" height="1.2" rotation="-90 0 0" position="0 0.205 0" material="color:#0d0905"></a-plane>
-      <a-box width="0.05" height="0.05" depth="1.2" position="-0.6 0.22 0" material="color:#6b4a2b"></a-box>
-      <a-box width="0.05" height="0.05" depth="1.2" position="-0.3 0.22 0" material="color:#6b4a2b"></a-box>
-      <a-box width="0.05" height="0.05" depth="1.2" position="0 0.22 0" material="color:#6b4a2b"></a-box>
-      <a-box width="0.05" height="0.05" depth="1.2" position="0.3 0.22 0" material="color:#6b4a2b"></a-box>
-      <a-box width="0.05" height="0.05" depth="1.2" position="0.6 0.22 0" material="color:#6b4a2b"></a-box>
-      <a-box width="1.8" height="0.05" depth="0.05" position="0 0.24 -0.3" material="color:#6b4a2b"></a-box>
-      <a-box width="1.8" height="0.05" depth="0.05" position="0 0.24 0" material="color:#6b4a2b"></a-box>
-      <a-box width="1.8" height="0.05" depth="0.05" position="0 0.24 0.3" material="color:#6b4a2b"></a-box>
+    <!-- companionway hatch to lower deck & cargo hold -->
+    <a-entity id="holdHatch" position="0 0 79.6">
+      <a-box width="2.2" height="0.25" depth="1.6" position="0 0.125 0" material="color:#3a2616;roughness:1"></a-box>
+      <!-- open hatch dark interior -->
+      <a-plane width="1.8" height="1.2" rotation="-90 0 0" position="0 0.05 0" material="color:#0a0704"></a-plane>
+      <!-- open hatchway coaming doors raised on sides -->
+      <a-box width="0.1" height="0.7" depth="1.3" position="-0.95 0.4 0" rotation="0 0 18" material="color:#4a321d;roughness:1"></a-box>
+      <a-box width="0.1" height="0.7" depth="1.3" position="0.95 0.4 0" rotation="0 0 -18" material="color:#4a321d;roughness:1"></a-box>
+      <!-- ladder rungs descending into hold -->
+      <a-cylinder radius="0.03" height="0.8" position="0 0.08 -0.4" rotation="0 0 90" material="color:#8a6035;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.03" height="0.8" position="0 -0.15 -0.32" rotation="0 0 90" material="color:#8a6035;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.03" height="0.8" position="0 -0.38 -0.24" rotation="0 0 90" material="color:#8a6035;roughness:1"></a-cylinder>
+      <!-- warm lantern glow rising from below -->
+      <a-light type="point" color="#ffaa44" intensity="0.7" distance="3.5" position="0 -0.2 0"></a-light>
+      <!-- clickable transition -->
+      <a-box class="clickable hold-hit" width="2.0" height="1.0" depth="1.5" position="0 0.45 0" material="opacity:0;depthWrite:false"></a-box>
+      <a-text face-camera value="Descend to Hold" align="center" color="#ffd080" width="2.2" position="0 1.25 0"></a-text>
     </a-entity>
 
     <!-- capstan for hauling the anchor -->
@@ -2104,11 +2126,18 @@ AFRAME.registerComponent('wheel-spin',{
         <a-box width="1.5" height="0.04" depth="0.42" position="0 1.35 0" material="color:#5a3a20"></a-box>
         <a-box width="1.66" height="0.04" depth="0.04" position="0 2.18 0.23" material="color:#caa15c;metalness:.6"></a-box>
         <a-plane width="1.5" height="1.95" position="0 1.1 0.235" material="color:#cfe8ff;opacity:0.14;transparent:true;metalness:.2;roughness:.05;depthWrite:false"></a-plane>
-        <!-- bottom shelf: message bottle + keeper's spyglass -->
+        <!-- bottom shelf: message bottle + golden astrolabe + keeper's spyglass -->
         <a-entity id="troph-bottle" visible="false" position="-0.4 0.17 0">
           <a-cylinder radius="0.08" height="0.3" position="0 0.15 0" material="color:#2ecc71;opacity:.7;transparent:true;roughness:.1"></a-cylinder>
           <a-cylinder radius="0.03" height="0.12" position="0 0.36 0" material="color:#2ecc71;opacity:.7;transparent:true"></a-cylinder>
           <a-cylinder radius="0.035" height="0.22" position="0 0.15 0" material="color:#f5e6c8"></a-cylinder>
+        </a-entity>
+        <a-entity id="troph-astrolabe" visible="false" position="0 0.17 0.05">
+          <a-box width="0.16" height="0.05" depth="0.1" position="0 0.025 0" material="color:#3a2414"></a-box>
+          <a-torus radius="0.09" radius-tubular="0.012" position="0 0.15 0" material="color:#ffd700;metalness:.9;roughness:.2;emissive:#caa15c;emissiveIntensity:.3"></a-torus>
+          <a-torus radius="0.065" radius-tubular="0.009" position="0 0.15 0" rotation="0 45 0" material="color:#e6b800;metalness:.9;roughness:.2"></a-torus>
+          <a-cylinder radius="0.01" height="0.2" position="0 0.15 0" rotation="90 30 0" material="color:#caa15c;metalness:.85"></a-cylinder>
+          <a-torus radius="0.025" radius-tubular="0.005" position="0 0.25 0" material="color:#ffd700;metalness:.9"></a-torus>
         </a-entity>
         <a-entity id="troph-spyglass" visible="false" position="0.4 0.17 0">
           <a-box width="0.3" height="0.06" depth="0.12" position="0 0.03 0" material="color:#3a2414"></a-box>
@@ -2126,6 +2155,13 @@ AFRAME.registerComponent('wheel-spin',{
           <a-cylinder radius="0.12" height="0.025" position="0 0.2 0" rotation="90 0 0" material="color:#e8b84a;metalness:.85;roughness:.2"></a-cylinder>
           <a-cone radius-bottom="0.025" radius-top="0.018" height="0.14" position="0 0.2 0.02" rotation="0 0 -70" material="color:#2a2a2e;metalness:.6"></a-cone>
           <a-box width="0.16" height="0.06" depth="0.1" position="0 0.03 0" material="color:#3a2414"></a-box>
+        </a-entity>
+        <a-entity id="troph-idol" visible="false" position="0 0.74 0.05">
+          <a-box width="0.18" height="0.06" depth="0.1" position="0 0.03 0" material="color:#3a2414"></a-box>
+          <a-cylinder radius="0.09" height="0.16" position="0 0.14 0" material="color:#11161d;roughness:.2;metalness:.7;emissive:#10ac84;emissiveIntensity:.4"></a-cylinder>
+          <a-sphere radius="0.07" position="0 0.27 0" scale="0.95 1.1 1.05" material="color:#0a0c0e;metalness:.8;roughness:.2"></a-sphere>
+          <a-sphere radius="0.015" position="-0.025 0.28 0.065" material="color:#ff3838;emissive:#ff0000;emissiveIntensity:1.5"></a-sphere>
+          <a-sphere radius="0.015" position="0.025 0.28 0.065" material="color:#ff3838;emissive:#ff0000;emissiveIntensity:1.5"></a-sphere>
         </a-entity>
         <!-- top shelf: pirate gold, one stack per real hoard dug up -->
         <a-entity id="troph-gold-1" visible="false" position="-0.45 1.37 0"><a-cylinder radius="0.08" height="0.12" position="0 0.06 0" material="color:#ffc21a;metalness:.8;roughness:.25;emissive:#664400;emissiveIntensity:.4"></a-cylinder><a-sphere radius="0.05" position="0.04 0.15 0.02" material="color:#ffc21a;metalness:.8"></a-sphere></a-entity>
@@ -2312,6 +2348,24 @@ AFRAME.registerComponent('wheel-spin',{
       <a-box width="0.16" height="0.02" depth="0.45" position="0.48 0.05 0.95" rotation="0 12 0" material="color:#a07848"></a-box>
     </a-entity>
 
+    <!-- Entrance to Smuggler's Sea Cave: rocky sea arch on the western cliffs -->
+    <a-entity id="caveEntrance" position="-16.2 0 -4.5" rotation="0 75 0" ground-snap="offset:0.1">
+      <a-torus radius="1.8" radius-tubular="0.55" arc="180" position="0 0.8 0" material="color:#4a4e54;roughness:1;flatShading:true"></a-torus>
+      <a-dodecahedron radius="1.1" position="-1.9 0.4 0" material="color:#3c3f44;roughness:1;flatShading:true"></a-dodecahedron>
+      <a-dodecahedron radius="1.0" position="1.9 0.4 0" material="color:#42464b;roughness:1;flatShading:true"></a-dodecahedron>
+      <a-plane width="2.4" height="2.2" position="0 0.9 -0.3" material="color:#05070a;roughness:1;side:double"></a-plane>
+      <a-light type="point" color="#55efc4" intensity="0.8" distance="5" position="0 1.2 0.4"></a-light>
+      <a-cylinder radius="0.04" height="1.6" position="1.7 0.8 0.6" material="color:#3a2616"></a-cylinder>
+      <a-cylinder radius="0.08" height="0.18" position="1.7 1.45 0.72" material="color:#ffe1a0;emissive:#55efc4;emissiveIntensity:1.2"></a-cylinder>
+      <a-cone radius-bottom="0.12" radius-top="0.02" height="0.1" position="1.7 1.58 0.72" material="color:#1d1d21"></a-cone>
+      <a-entity position="0 0.05 1.2" rotation="0 15 0">
+        <a-sphere radius="0.7" scale="0.65 0.35 1.5" theta-start="90" theta-length="90" material="color:#5a3d24;roughness:.9;side:double"></a-sphere>
+        <a-cylinder radius="0.02" height="1.6" position="0.1 0.05 0" rotation="90 8 0" material="color:#7a5230"></a-cylinder>
+      </a-entity>
+      <a-box class="clickable cave-hit" width="2.8" height="2.4" depth="2.2" position="0 1.1 0.5" material="opacity:0;depthWrite:false"></a-box>
+      <a-text face-camera value="Smuggler's Sea Cave" align="center" color="#55efc4" width="2.8" position="0 2.7 0.5"></a-text>
+    </a-entity>
+
     <!-- driftwood logs washed up on the beach -->
     <a-cylinder radius="0.12" height="2.4" position="-5.5 0.1 16.4" rotation="0 25 88" material="src:#hullTex;color:#b8a888;roughness:1" ground-snap shadow="cast:true"></a-cylinder>
     <a-cylinder radius="0.09" height="1.7" position="13.8 0.08 11.6" rotation="0 -35 90" material="src:#hullTex;color:#a89878;roughness:1" ground-snap shadow="cast:true"></a-cylinder>
@@ -2473,6 +2527,497 @@ AFRAME.registerComponent('wheel-spin',{
   <a-entity id="scene-tower" visible="false">
     <a-entity id="towerInterior" lighthouse-interior position="0 -80 -15">
       <a-entity id="towerProps"></a-entity>
+    </a-entity>
+  </a-entity>
+
+  <!-- =========================================================
+       SCENE 5 — SMUGGLER'S SEA CAVE (subterranean grotto & vault)
+       ========================================================= -->
+  <a-entity id="scene-cave" visible="false" position="0 -40 -100">
+    <!-- Cavern Dome & Rocky Floor -->
+    <a-sphere radius="9.4" theta-length="90" rotation="180 0 0" position="0 7.5 -1.5" material="src:#stoneTex;repeat:6 4;color:#282c33;roughness:1;side:back"></a-sphere>
+    <a-circle radius="9.4" rotation="-90 0 0" position="0 0.01 -1.5" material="src:#stoneTex;repeat:8 8;color:#1e2227;roughness:1"></a-circle>
+    
+    <!-- Cavern Water Pool with water ripples & bobbing drift planks -->
+    <a-circle radius="4.4" rotation="-90 0 0" position="0 0.04 -1.5" material="color:#09303d;opacity:0.86;transparent:true;roughness:0.08;metalness:0.4"></a-circle>
+    <a-ring radius-inner="1.8" radius-outer="2.05" rotation="-90 0 0" position="0 0.045 -1.5" material="shader:flat;color:#38ada9;opacity:0.35;transparent:true"
+            animation="property:scale;from:0.8 0.8 0.8;to:1.8 1.8 1.8;dur:2800;loop:true;easing:easeOutQuad"
+            animation__fade="property:material.opacity;from:0.5;to:0;dur:2800;loop:true;easing:easeOutQuad"></a-ring>
+    <a-ring radius-inner="1.0" radius-outer="1.2" rotation="-90 0 0" position="0 0.045 -1.5" material="shader:flat;color:#38ada9;opacity:0.4;transparent:true"
+            animation="property:scale;from:0.8 0.8 0.8;to:1.8 1.8 1.8;dur:2800;delay:1400;loop:true;easing:easeOutQuad"
+            animation__fade="property:material.opacity;from:0.5;to:0;dur:2800;delay:1400;loop:true;easing:easeOutQuad"></a-ring>
+    
+    <!-- Bobbing Driftwood Planks & Crate in Pool -->
+    <a-box width="1.2" height="0.08" depth="0.25" position="-1.4 0.05 -1.8" rotation="0 25 3" material="color:#4a3319;roughness:0.95"
+           animation="property:position;from:-1.4 0.03 -1.8;to:-1.4 0.07 -1.8;dur:1900;dir:alternate;loop:true;easing:easeInOutSine"></a-box>
+    <a-box width="0.9" height="0.08" depth="0.22" position="1.6 0.05 -0.9" rotation="0 -35 -2" material="color:#543b1e;roughness:0.95"
+           animation="property:position;from:1.6 0.03 -0.9;to:1.6 0.07 -0.9;dur:2200;dir:alternate;loop:true;easing:easeInOutSine"></a-box>
+    <a-box width="0.45" height="0.45" depth="0.45" position="-0.8 0.15 -2.6" rotation="4 18 -6" material="color:#3e2715;roughness:0.9"
+           animation="property:position;from:-0.8 0.12 -2.6;to:-0.8 0.18 -2.6;dur:2100;dir:alternate;loop:true;easing:easeInOutSine"></a-box>
+
+    <!-- Cavern ceiling stalactites -->
+    <a-cone radius-bottom="0.45" radius-top="0.02" height="2.6" rotation="180 0 0" position="-3.2 7.0 -2.4" material="src:#stoneTex;color:#353b44;roughness:1"></a-cone>
+    <a-cone radius-bottom="0.35" radius-top="0.02" height="2.1" rotation="180 0 0" position="2.8 7.2 -3.1" material="src:#stoneTex;color:#353b44;roughness:1"></a-cone>
+    <a-cone radius-bottom="0.4" radius-top="0.02" height="2.8" rotation="180 0 0" position="-1.5 7.0 1.2" material="src:#stoneTex;color:#353b44;roughness:1"></a-cone>
+    <a-cone radius-bottom="0.3" radius-top="0.02" height="1.8" rotation="180 0 0" position="3.5 7.2 0.8" material="src:#stoneTex;color:#353b44;roughness:1"></a-cone>
+    <a-cone radius-bottom="0.5" radius-top="0.02" height="3.2" rotation="180 0 0" position="0 6.8 5.5" material="src:#stoneTex;color:#353b44;roughness:1"></a-cone>
+    <a-cone radius-bottom="0.25" radius-top="0.02" height="1.6" rotation="180 0 0" position="-4.5 7.1 1.8" material="src:#stoneTex;color:#353b44;roughness:1"></a-cone>
+    <a-cone radius-bottom="0.28" radius-top="0.02" height="1.9" rotation="180 0 0" position="4.2 7.0 -0.5" material="src:#stoneTex;color:#353b44;roughness:1"></a-cone>
+
+    <!-- Upward Ground Stalagmites -->
+    <a-cone radius-bottom="0.4" radius-top="0.02" height="1.8" position="-5.8 0.9 -1.0" material="src:#stoneTex;color:#30353c;roughness:1"></a-cone>
+    <a-cone radius-bottom="0.3" radius-top="0.02" height="1.3" position="-5.5 0.65 -0.4" material="src:#stoneTex;color:#30353c;roughness:1"></a-cone>
+    <a-cone radius-bottom="0.38" radius-top="0.02" height="1.6" position="5.6 0.8 1.4" material="src:#stoneTex;color:#30353c;roughness:1"></a-cone>
+    <a-cone radius-bottom="0.25" radius-top="0.02" height="1.1" position="5.9 0.55 0.8" material="src:#stoneTex;color:#30353c;roughness:1"></a-cone>
+
+    <!-- Glowing Bioluminescent Crystals & Spores -->
+    <!-- Crystal clusters on rocks -->
+    <a-entity position="-5.6 0.7 -2.8" rotation="15 35 -10">
+      <a-octahedron radius="0.22" scale="0.6 1.4 0.6" material="color:#00cec9;emissive:#00cec9;emissiveIntensity:1.2;roughness:0.2"></a-octahedron>
+      <a-octahedron radius="0.16" scale="0.6 1.2 0.6" position="0.15 -0.1 0.1" material="color:#55efc4;emissive:#55efc4;emissiveIntensity:1.1"></a-octahedron>
+      <a-octahedron radius="0.12" scale="0.5 1.0 0.5" position="-0.12 -0.15 0.05" material="color:#81ecec;emissive:#81ecec;emissiveIntensity:1.4"></a-octahedron>
+    </a-entity>
+    <a-entity position="5.4 0.6 -1.8" rotation="-10 -40 15">
+      <a-octahedron radius="0.2" scale="0.6 1.3 0.6" material="color:#00cec9;emissive:#00cec9;emissiveIntensity:1.2;roughness:0.2"></a-octahedron>
+      <a-octahedron radius="0.15" scale="0.6 1.1 0.6" position="-0.12 -0.1 -0.08" material="color:#55efc4;emissive:#55efc4;emissiveIntensity:1.1"></a-octahedron>
+    </a-entity>
+    
+    <!-- Floating bioluminescent airborne spores -->
+    <a-entity position="-1.5 2.2 -0.5" animation="property:position;from:-1.5 2.0 -0.5;to:-1.5 2.5 -0.5;dur:2600;dir:alternate;loop:true;easing:easeInOutSine">
+      <a-sphere radius="0.035" material="shader:flat;color:#55efc4;opacity:0.85;transparent:true"></a-sphere>
+    </a-entity>
+    <a-entity position="1.2 2.6 -1.8" animation="property:position;from:1.2 2.4 -1.8;to:1.2 2.9 -1.8;dur:3100;dir:alternate;loop:true;easing:easeInOutSine">
+      <a-sphere radius="0.04" material="shader:flat;color:#81ecec;opacity:0.8;transparent:true"></a-sphere>
+    </a-entity>
+    <a-entity position="-2.4 3.0 1.0" animation="property:position;from:-2.4 2.8 1.0;to:-2.4 3.3 1.0;dur:2400;dir:alternate;loop:true;easing:easeInOutSine">
+      <a-sphere radius="0.03" material="shader:flat;color:#00cec9;opacity:0.75;transparent:true"></a-sphere>
+    </a-entity>
+    <a-entity position="2.5 1.8 1.2" animation="property:position;from:2.5 1.6 1.2;to:2.5 2.1 1.2;dur:2900;dir:alternate;loop:true;easing:easeInOutSine">
+      <a-sphere radius="0.035" material="shader:flat;color:#55efc4;opacity:0.8;transparent:true"></a-sphere>
+    </a-entity>
+
+    <!-- Bioluminescent moss patches -->
+    <a-plane width="1.2" height="0.8" position="-5.2 2.1 -3.2" rotation="0 65 0" material="shader:flat;color:#2ecc71;opacity:0.55;transparent:true"></a-plane>
+    <a-plane width="1.4" height="0.9" position="5.4 1.8 -2.0" rotation="0 -70 0" material="shader:flat;color:#2ecc71;opacity:0.55;transparent:true"></a-plane>
+    <a-light type="point" color="#2ecc71" intensity="0.5" distance="6" position="-4.8 2.2 -3"></a-light>
+    <a-light type="point" color="#2ecc71" intensity="0.5" distance="6" position="4.8 2.0 -2"></a-light>
+    <a-light type="ambient" color="#0e232c" intensity="0.85"></a-light>
+
+    <!-- Entrance Skiff (to row back to Island) -->
+    <a-entity id="caveExitBoat" position="0 0 -6.2" rotation="0 180 0">
+      <a-sphere radius="1" scale="0.75 0.42 1.75" theta-start="90" theta-length="90" material="color:#7a5230;roughness:.9;side:double"></a-sphere>
+      <a-torus radius="1" radius-tubular="0.05" scale="0.75 1.75 1" rotation="90 0 0" material="color:#4a3220;roughness:.9"></a-torus>
+      <!-- Coiled hemp line in boat -->
+      <a-torus radius="0.25" radius-tubular="0.04" position="0 0.15 0.8" rotation="90 0 0" material="color:#8c6d48;roughness:1"></a-torus>
+      <a-box class="clickable cave-boat-hit" width="1.8" height="1.0" depth="3.2" position="0 0.4 0" material="opacity:0;depthWrite:false"></a-box>
+      <a-text face-camera value="Row back to Island" align="center" color="#fff3d0" width="2.2" position="0 1.2 0"></a-text>
+    </a-entity>
+
+    <!-- THE FALLEN BUCCANEER SKELETON (Environmental Storytelling) -->
+    <a-entity id="caveSkeleton" position="-5.2 0 1.2" rotation="0 65 0">
+      <!-- Skull with tricorn hat -->
+      <a-sphere radius="0.14" position="0 0.5 0" material="color:#dedede;roughness:0.8"></a-sphere>
+      <a-sphere radius="0.025" position="-0.04 0.52 0.12" material="color:#111"></a-sphere>
+      <a-sphere radius="0.025" position="0.04 0.52 0.12" material="color:#111"></a-sphere>
+      <!-- Weathered black tricorn pirate hat -->
+      <a-cylinder radius="0.18" height="0.08" position="0 0.62 0" rotation="10 5 -5" material="color:#1a1918;roughness:0.9"></a-cylinder>
+      <a-cone radius-bottom="0.26" radius-top="0.16" height="0.06" position="0 0.61 0" rotation="10 5 -5" material="color:#1a1918;roughness:0.9"></a-cone>
+      <!-- Spine & Ribcage -->
+      <a-cylinder radius="0.04" height="0.4" position="0 0.25 0" material="color:#dedede;roughness:0.8"></a-cylinder>
+      <a-torus radius="0.12" radius-tubular="0.018" position="0 0.32 0" rotation="90 0 0" material="color:#dedede;roughness:0.8"></a-torus>
+      <a-torus radius="0.1" radius-tubular="0.016" position="0 0.24 0" rotation="90 0 0" material="color:#dedede;roughness:0.8"></a-torus>
+      <!-- Leg and Arm bones -->
+      <a-cylinder radius="0.022" height="0.38" position="-0.12 0.08 0.15" rotation="25 0 20" material="color:#dedede"></a-cylinder>
+      <a-cylinder radius="0.022" height="0.38" position="0.12 0.08 0.15" rotation="25 0 -20" material="color:#dedede"></a-cylinder>
+      <!-- Rusted iron cutlass wedged in rock -->
+      <a-box width="0.03" height="0.65" depth="0.01" position="0.3 0.28 0.05" rotation="-20 15 35" material="color:#57544d;metalness:0.7;roughness:0.6"></a-box>
+      <a-torus radius="0.06" radius-tubular="0.012" position="0.4 0.05 0.12" rotation="45 0 0" material="color:#b38728;metalness:0.8"></a-torus>
+      <!-- Skeletal Warning Note -->
+      <a-plane width="0.3" height="0.4" position="-0.25 0.18 0.25" rotation="-50 40 10" material="color:#f1e2b8;side:double"></a-plane>
+      <a-box class="clickable skeleton-note-hit" width="0.8" height="0.8" depth="0.8" position="0 0.4 0.1" material="opacity:0;depthWrite:false"></a-box>
+      <a-text face-camera value="Inspect Bones" align="center" color="#e2d2a4" width="1.6" position="0 0.85 0"></a-text>
+    </a-entity>
+
+    <!-- Smuggler Contraband Stacks in Cave Recess -->
+    <a-entity position="4.6 0 -5.0">
+      <a-box width="0.9" height="0.8" depth="0.9" position="0 0.4 0" material="color:#4a321d;roughness:0.95"></a-box>
+      <a-cylinder radius="0.32" height="0.75" position="-0.6 0.38 0.2" material="color:#6b4423;roughness:0.9"></a-cylinder>
+      <a-torus radius="0.32" radius-tubular="0.02" position="-0.6 0.6 0.2" rotation="90 0 0" material="color:#221c17"></a-torus>
+      <a-torus radius="0.32" radius-tubular="0.02" position="-0.6 0.15 0.2" rotation="90 0 0" material="color:#221c17"></a-torus>
+      <a-cylinder radius="0.28" height="0.7" position="0.2 0.35 0.7" rotation="90 0 30" material="color:#5a3717;roughness:0.9"></a-cylinder>
+      <!-- Hanging iron lantern cage from stalactite -->
+      <a-cylinder radius="0.01" height="1.8" position="-0.3 2.2 0.2" material="color:#111"></a-cylinder>
+      <a-box width="0.22" height="0.32" depth="0.22" position="-0.3 1.2 0.2" material="color:#1e1e22;metalness:0.8;roughness:0.3"></a-box>
+      <a-light type="point" color="#ff9f43" intensity="0.6" distance="3.5" position="-0.3 1.2 0.2"></a-light>
+    </a-entity>
+
+    <!-- Ancient Riddle Tablet with Glowing Carvings -->
+    <a-entity position="3.2 0 -3.2" rotation="0 -40 0">
+      <a-box width="1.6" height="2.0" depth="0.25" position="0 1.0 0" material="src:#stoneTex;color:#434952;roughness:1"></a-box>
+      <a-plane width="1.4" height="1.7" position="0 1.05 0.13" material="color:#181b20;roughness:1"></a-plane>
+      <!-- Runes and Title -->
+      <a-text value="THE SMUGGLER'S CODE\n\nI. Honors the DEEP where sea beasts dwell\nII. The burning FLAME across the swell\nIII. Drops the ANCHOR in quiet repose\nIV. Calls the DEAD as the iron gates close"
+              align="center" color="#55efc4" width="1.8" wrap-count="24" position="0 1.05 0.14"></a-text>
+      <!-- Glowing skull icon carved on tablet pediment -->
+      <a-text value="&#9760;" align="center" color="#ffd700" width="2.4" position="0 1.8 0.14"></a-text>
+      <a-box class="clickable tablet-hit" width="1.6" height="2.0" depth="0.5" position="0 1.0 0.2" material="opacity:0;depthWrite:false"></a-box>
+    </a-entity>
+
+    <!-- 4 Wall Braziers for the Riddle Sequence -->
+    <!-- Brazier 1: DEEP (x: -4.8, z: -2.5) -->
+    <a-entity id="brazier-deep" class="brazier" data-type="deep" data-name="Brazier of the Deep" position="-4.8 0 -2.5" rotation="0 50 0">
+      <a-cylinder radius="0.32" height="0.9" position="0 0.45 0" material="src:#stoneTex;color:#3b4046;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.45" height="0.14" position="0 0.95 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-cylinder>
+      <a-sphere radius="0.42" theta-length="90" position="0 0.95 0" rotation="180 0 0" material="color:#1d1d21;metalness:.6;roughness:.5;side:double"></a-sphere>
+      <a-circle radius="0.38" rotation="-90 0 0" position="0 0.98 0" material="color:#111111;roughness:1"></a-circle>
+      <!-- Glowing charcoal embers -->
+      <a-circle radius="0.34" rotation="-90 0 0" position="0 0.99 0" material="color:#2d1b0d;emissive:#ff3838;emissiveIntensity:0.25;roughness:1"></a-circle>
+      <a-entity class="brazier-flame" visible="false" position="0 1.25 0">
+        <a-cone radius-bottom="0.26" radius-top="0.02" height="0.65" material="shader:flat;color:#00cec9;opacity:0.9;transparent:true" animation="property:scale;from:1 1 1;to:1.2 1.35 1.2;dur:220;dir:alternate;loop:true;easing:easeInOutSine"></a-cone>
+        <a-cone radius-bottom="0.15" radius-top="0.01" height="0.45" position="0 0.05 0" material="shader:flat;color:#55efc4" animation="property:scale;from:1 1.2 1;to:1.15 0.9 1.15;dur:170;dir:alternate;loop:true"></a-cone>
+        <a-light type="point" color="#00cec9" intensity="1.5" distance="7"></a-light>
+      </a-entity>
+      <a-plane width="0.6" height="0.25" position="0 0.6 0.34" material="color:#1e272e"></a-plane>
+      <a-text value="I · DEEP" align="center" color="#55efc4" width="1.6" position="0 0.6 0.35"></a-text>
+      <a-box class="clickable brazier-hit" width="0.9" height="1.6" depth="0.9" position="0 0.8 0" material="opacity:0;depthWrite:false"></a-box>
+    </a-entity>
+
+    <!-- Brazier 2: FLAME (x: 4.8, z: -2.5) -->
+    <a-entity id="brazier-flame" class="brazier" data-type="flame" data-name="Brazier of the Flame" position="4.8 0 -2.5" rotation="0 -50 0">
+      <a-cylinder radius="0.32" height="0.9" position="0 0.45 0" material="src:#stoneTex;color:#3b4046;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.45" height="0.14" position="0 0.95 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-cylinder>
+      <a-sphere radius="0.42" theta-length="90" position="0 0.95 0" rotation="180 0 0" material="color:#1d1d21;metalness:.6;roughness:.5;side:double"></a-sphere>
+      <a-circle radius="0.38" rotation="-90 0 0" position="0 0.98 0" material="color:#111111;roughness:1"></a-circle>
+      <a-circle radius="0.34" rotation="-90 0 0" position="0 0.99 0" material="color:#2d1b0d;emissive:#ff3838;emissiveIntensity:0.25;roughness:1"></a-circle>
+      <a-entity class="brazier-flame" visible="false" position="0 1.25 0">
+        <a-cone radius-bottom="0.26" radius-top="0.02" height="0.65" material="shader:flat;color:#ff6600;opacity:0.9;transparent:true" animation="property:scale;from:1 1 1;to:1.2 1.35 1.2;dur:220;dir:alternate;loop:true;easing:easeInOutSine"></a-cone>
+        <a-cone radius-bottom="0.15" radius-top="0.01" height="0.45" position="0 0.05 0" material="shader:flat;color:#ffdd44" animation="property:scale;from:1 1.2 1;to:1.15 0.9 1.15;dur:170;dir:alternate;loop:true"></a-cone>
+        <a-light type="point" color="#ff9933" intensity="1.5" distance="7"></a-light>
+      </a-entity>
+      <a-plane width="0.6" height="0.25" position="0 0.6 0.34" material="color:#1e272e"></a-plane>
+      <a-text value="II · FLAME" align="center" color="#ff7675" width="1.6" position="0 0.6 0.35"></a-text>
+      <a-box class="clickable brazier-hit" width="0.9" height="1.6" depth="0.9" position="0 0.8 0" material="opacity:0;depthWrite:false"></a-box>
+    </a-entity>
+
+    <!-- Brazier 3: ANCHOR (x: -4.2, z: 2.2) -->
+    <a-entity id="brazier-anchor" class="brazier" data-type="anchor" data-name="Brazier of the Anchor" position="-4.2 0 2.2" rotation="0 110 0">
+      <a-cylinder radius="0.32" height="0.9" position="0 0.45 0" material="src:#stoneTex;color:#3b4046;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.45" height="0.14" position="0 0.95 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-cylinder>
+      <a-sphere radius="0.42" theta-length="90" position="0 0.95 0" rotation="180 0 0" material="color:#1d1d21;metalness:.6;roughness:.5;side:double"></a-sphere>
+      <a-circle radius="0.38" rotation="-90 0 0" position="0 0.98 0" material="color:#111111;roughness:1"></a-circle>
+      <a-circle radius="0.34" rotation="-90 0 0" position="0 0.99 0" material="color:#2d1b0d;emissive:#ff3838;emissiveIntensity:0.25;roughness:1"></a-circle>
+      <a-entity class="brazier-flame" visible="false" position="0 1.25 0">
+        <a-cone radius-bottom="0.26" radius-top="0.02" height="0.65" material="shader:flat;color:#0984e3;opacity:0.9;transparent:true" animation="property:scale;from:1 1 1;to:1.2 1.35 1.2;dur:220;dir:alternate;loop:true;easing:easeInOutSine"></a-cone>
+        <a-cone radius-bottom="0.15" radius-top="0.01" height="0.45" position="0 0.05 0" material="shader:flat;color:#74b9ff" animation="property:scale;from:1 1.2 1;to:1.15 0.9 1.15;dur:170;dir:alternate;loop:true"></a-cone>
+        <a-light type="point" color="#0984e3" intensity="1.5" distance="7"></a-light>
+      </a-entity>
+      <a-plane width="0.6" height="0.25" position="0 0.6 0.34" material="color:#1e272e"></a-plane>
+      <a-text value="III · ANCHOR" align="center" color="#74b9ff" width="1.6" position="0 0.6 0.35"></a-text>
+      <a-box class="clickable brazier-hit" width="0.9" height="1.6" depth="0.9" position="0 0.8 0" material="opacity:0;depthWrite:false"></a-box>
+    </a-entity>
+
+    <!-- Brazier 4: DEAD (x: 4.2, z: 2.2) -->
+    <a-entity id="brazier-skull" class="brazier" data-type="skull" data-name="Brazier of the Dead" position="4.2 0 2.2" rotation="0 -110 0">
+      <a-cylinder radius="0.32" height="0.9" position="0 0.45 0" material="src:#stoneTex;color:#3b4046;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.45" height="0.14" position="0 0.95 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-cylinder>
+      <a-sphere radius="0.42" theta-length="90" position="0 0.95 0" rotation="180 0 0" material="color:#1d1d21;metalness:.6;roughness:.5;side:double"></a-sphere>
+      <a-circle radius="0.38" rotation="-90 0 0" position="0 0.98 0" material="color:#111111;roughness:1"></a-circle>
+      <a-circle radius="0.34" rotation="-90 0 0" position="0 0.99 0" material="color:#2d1b0d;emissive:#ff3838;emissiveIntensity:0.25;roughness:1"></a-circle>
+      <a-entity class="brazier-flame" visible="false" position="0 1.25 0">
+        <a-cone radius-bottom="0.26" radius-top="0.02" height="0.65" material="shader:flat;color:#a29bfe;opacity:0.9;transparent:true" animation="property:scale;from:1 1 1;to:1.2 1.35 1.2;dur:220;dir:alternate;loop:true;easing:easeInOutSine"></a-cone>
+        <a-cone radius-bottom="0.15" radius-top="0.01" height="0.45" position="0 0.05 0" material="shader:flat;color:#ffeaa7" animation="property:scale;from:1 1.2 1;to:1.15 0.9 1.15;dur:170;dir:alternate;loop:true"></a-cone>
+        <a-light type="point" color="#a29bfe" intensity="1.5" distance="7"></a-light>
+      </a-entity>
+      <a-plane width="0.6" height="0.25" position="0 0.6 0.34" material="color:#1e272e"></a-plane>
+      <a-text value="IV · DEAD" align="center" color="#ffeaa7" width="1.6" position="0 0.6 0.35"></a-text>
+      <a-box class="clickable brazier-hit" width="0.9" height="1.6" depth="0.9" position="0 0.8 0" material="opacity:0;depthWrite:false"></a-box>
+    </a-entity>
+
+    <!-- The Massive Stone Arch & Waterlogged Iron Portcullis -->
+    <a-entity id="caveGateArch" position="0 0 4.6">
+      <a-box width="1.4" height="6.0" depth="1.2" position="-2.6 3.0 0" material="src:#stoneTex;color:#353a42;roughness:1"></a-box>
+      <a-box width="1.4" height="6.0" depth="1.2" position="2.6 3.0 0" material="src:#stoneTex;color:#353a42;roughness:1"></a-box>
+      <a-box width="6.6" height="1.6" depth="1.3" position="0 5.6 0" material="src:#stoneTex;color:#353a42;roughness:1"></a-box>
+      <!-- Skull keystone above gate -->
+      <a-sphere radius="0.32" position="0 5.4 0.7" scale="1 1.2 0.8" material="src:#stoneTex;color:#4a515c;roughness:0.9"></a-sphere>
+      <a-cylinder radius="0.03" height="3.5" position="-1.4 5.5 0" material="color:#1d1d21;metalness:.8"></a-cylinder>
+      <a-cylinder radius="0.03" height="3.5" position="1.4 5.5 0" material="color:#1d1d21;metalness:.8"></a-cylinder>
+      <!-- Heavy iron hoist chains -->
+      <a-cylinder radius="0.02" height="4.5" position="-1.9 3.2 0.1" material="color:#2a2a2e;metalness:0.9"></a-cylinder>
+      <a-cylinder radius="0.02" height="4.5" position="1.9 3.2 0.1" material="color:#2a2a2e;metalness:0.9"></a-cylinder>
+      <!-- Portcullis Gate entity -->
+      <a-entity id="cavePortcullis" position="0 0 0">
+        <a-box width="4.0" height="0.12" depth="0.1" position="0 3.6 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="4.0" height="0.12" depth="0.1" position="0 1.8 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="4.0" height="0.12" depth="0.1" position="0 0.3 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="0.1" height="3.8" depth="0.1" position="-1.6 1.9 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="0.1" height="3.8" depth="0.1" position="-1.2 1.9 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="0.1" height="3.8" depth="0.1" position="-0.8 1.9 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="0.1" height="3.8" depth="0.1" position="-0.4 1.9 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="0.1" height="3.8" depth="0.1" position="0.0 1.9 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="0.1" height="3.8" depth="0.1" position="0.4 1.9 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="0.1" height="3.8" depth="0.1" position="0.8 1.9 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="0.1" height="3.8" depth="0.1" position="1.2 1.9 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <a-box width="0.1" height="3.8" depth="0.1" position="1.6 1.9 0" material="color:#1d1d21;metalness:.7;roughness:.4"></a-box>
+        <!-- Spiked bottom teeth -->
+        <a-cone radius-bottom="0.06" radius-top="0.01" height="0.3" position="-1.6 0.05 0" rotation="180 0 0" material="color:#1d1d21;metalness:0.8"></a-cone>
+        <a-cone radius-bottom="0.06" radius-top="0.01" height="0.3" position="-0.8 0.05 0" rotation="180 0 0" material="color:#1d1d21;metalness:0.8"></a-cone>
+        <a-cone radius-bottom="0.06" radius-top="0.01" height="0.3" position="0.0 0.05 0" rotation="180 0 0" material="color:#1d1d21;metalness:0.8"></a-cone>
+        <a-cone radius-bottom="0.06" radius-top="0.01" height="0.3" position="0.8 0.05 0" rotation="180 0 0" material="color:#1d1d21;metalness:0.8"></a-cone>
+        <a-cone radius-bottom="0.06" radius-top="0.01" height="0.3" position="1.6 0.05 0" rotation="180 0 0" material="color:#1d1d21;metalness:0.8"></a-cone>
+      </a-entity>
+    </a-entity>
+
+    <!-- The Inner Smugglers' Treasure Vault -->
+    <a-entity position="0 0 10.5">
+      <!-- Vault chamber walls -->
+      <a-sphere radius="6.5" theta-length="90" rotation="180 0 0" position="0 6.0 0" material="src:#stoneTex;repeat:4 3;color:#282c32;roughness:1;side:back"></a-sphere>
+      <a-circle radius="5.8" rotation="-90 0 0" position="0 0.02 0" material="src:#stoneTex;repeat:5 5;color:#1c1f24;roughness:1"></a-circle>
+      <!-- Vault pillars flanking altar -->
+      <a-cylinder radius="0.38" height="5.5" position="-2.4 2.75 -0.5" material="src:#stoneTex;color:#393e47;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.38" height="5.5" position="2.4 2.75 -0.5" material="src:#stoneTex;color:#393e47;roughness:1"></a-cylinder>
+      <a-light type="point" color="#ffeaa7" intensity="1.4" distance="9" position="0 3.8 0"></a-light>
+      <!-- Stepped Altar -->
+      <a-box width="3.2" height="0.25" depth="2.8" position="0 0.125 0" material="src:#stoneTex;color:#2b3036;roughness:1"></a-box>
+      <a-box width="2.4" height="0.25" depth="2.0" position="0 0.375 0" material="src:#stoneTex;color:#333940;roughness:1"></a-box>
+      <a-box width="1.8" height="0.65" depth="1.2" position="0 0.8 0" material="src:#stoneTex;color:#3f4650;roughness:1"></a-box>
+      <!-- Gold doubloon piles, chalices, and jewels on the altar -->
+      <a-cylinder radius="0.38" height="0.14" position="-0.5 1.18 0" material="color:#ffd700;metalness:.95;roughness:.2;emissive:#a67c00;emissiveIntensity:.6"></a-cylinder>
+      <a-cylinder radius="0.34" height="0.18" position="0.5 1.2 0.1" material="color:#ffd700;metalness:.95;roughness:.2;emissive:#a67c00;emissiveIntensity:.6"></a-cylinder>
+      <a-cylinder radius="0.26" height="0.12" position="0.1 1.28 -0.3" material="color:#ffae00;metalness:.9;roughness:.25"></a-cylinder>
+      <!-- Golden goblets and chalices -->
+      <a-cone radius-bottom="0.08" radius-top="0.12" height="0.22" position="-0.25 1.22 0.35" material="color:#ffd700;metalness:0.9;roughness:0.2"></a-cone>
+      <a-cone radius-bottom="0.08" radius-top="0.12" height="0.22" position="0.3 1.22 0.38" material="color:#ffd700;metalness:0.9;roughness:0.2"></a-cone>
+      <!-- Sparkling jewels -->
+      <a-octahedron radius="0.09" position="-0.4 1.28 0.3" material="color:#ff3838;emissive:#ff1111;emissiveIntensity:.9"></a-octahedron>
+      <a-octahedron radius="0.09" position="0.4 1.28 -0.2" material="color:#2ecc71;emissive:#10ac84;emissiveIntensity:.9"></a-octahedron>
+      <a-octahedron radius="0.07" position="-0.15 1.25 -0.2" material="color:#0984e3;emissive:#0984e3;emissiveIntensity:1.1"></a-octahedron>
+      <a-cylinder radius="0.25" height="0.32" position="0 1.27 0" material="color:#11161d;metalness:.8;roughness:.3"></a-cylinder>
+      
+      <!-- THE SMUGGLER'S CURSED IDOL -->
+      <a-entity id="caveIdol" position="0 1.68 0" animation="property:position;from:0 1.62 0;to:0 1.76 0;dur:1600;dir:alternate;loop:true;easing:easeInOutSine" animation__spin="property:rotation;from:0 0 0;to:0 360 0;dur:9000;loop:true;easing:linear">
+        <a-sphere radius="0.2" scale="0.95 1.1 1.05" material="color:#0a0c0e;roughness:.15;metalness:.75;emissive:#0652dd;emissiveIntensity:.3"></a-sphere>
+        <a-sphere radius="0.04" position="-0.07 0.05 0.18" material="color:#ff3838;emissive:#ff0000;emissiveIntensity:1.8"></a-sphere>
+        <a-sphere radius="0.04" position="0.07 0.05 0.18" material="color:#ff3838;emissive:#ff0000;emissiveIntensity:1.8"></a-sphere>
+        <a-box width="0.14" height="0.06" depth="0.06" position="0 -0.11 0.17" material="color:#ffd700;metalness:.9;roughness:.2"></a-box>
+        <a-cone radius-bottom="0.2" radius-top="0.02" height="0.16" position="0 0.23 0" material="color:#d4af37;metalness:.85;roughness:.25"></a-cone>
+        <a-ring radius-inner="0.3" radius-outer="0.36" rotation="-90 0 0" position="0 -0.05 0" material="shader:flat;color:#55efc4;opacity:0.75;transparent:true" animation="property:scale;from:1 1 1;to:1.3 1.3 1.3;dur:1200;dir:alternate;loop:true"></a-ring>
+        <a-light type="point" color="#55efc4" intensity="1.6" distance="6"></a-light>
+        <a-sphere class="clickable idol-hit" radius="0.5" material="opacity:0;depthWrite:false"></a-sphere>
+        <a-text face-camera value="Claim Smuggler's Relic" align="center" color="#55efc4" width="2.4" position="0 0.52 0"></a-text>
+      </a-entity>
+    </a-entity>
+  </a-entity>
+
+  <!-- ================= SCENE: Lower Deck & Cargo Hold ================= -->
+  <a-entity id="scene-hold" visible="false" position="0 -60 78">
+    <!-- Local ambient lighting: dim, moody amber glow -->
+    <a-entity light="type:ambient;color:#ffcca0;intensity:0.35"></a-entity>
+    
+    <!-- Heavy planked deck floor -->
+    <a-box width="6.6" height="0.25" depth="17.6" position="0 -0.125 0" material="color:#2a1b10;roughness:0.95"></a-box>
+    <a-plane width="6.4" height="17.4" rotation="-90 0 0" position="0 0.005 0" material="color:#3d2716;roughness:0.9"></a-plane>
+
+    <!-- Low wooden beam ceiling -->
+    <a-box width="6.6" height="0.2" depth="17.6" position="0 3.3 0" material="color:#22150c;roughness:0.95"></a-box>
+    
+    <!-- Transverse ceiling beams spaced along the hold -->
+    <a-box width="6.6" height="0.28" depth="0.3" position="0 3.1 -7" material="color:#382212;roughness:0.9"></a-box>
+    <a-box width="6.6" height="0.28" depth="0.3" position="0 3.1 -4.2" material="color:#382212;roughness:0.9"></a-box>
+    <a-box width="6.6" height="0.28" depth="0.3" position="0 3.1 -1.4" material="color:#382212;roughness:0.9"></a-box>
+    <a-box width="6.6" height="0.28" depth="0.3" position="0 3.1 1.4" material="color:#382212;roughness:0.9"></a-box>
+    <a-box width="6.6" height="0.28" depth="0.3" position="0 3.1 4.2" material="color:#382212;roughness:0.9"></a-box>
+    <a-box width="6.6" height="0.28" depth="0.3" position="0 3.1 7" material="color:#382212;roughness:0.9"></a-box>
+
+    <!-- Center vertical support stanchions / pillars -->
+    <a-box width="0.22" height="3.2" depth="0.22" position="0 1.6 -4.2" material="color:#3e2615;roughness:0.9"></a-box>
+    <a-box width="0.22" height="3.2" depth="0.22" position="0 1.6 -1.4" material="color:#3e2615;roughness:0.9"></a-box>
+    <a-box width="0.22" height="3.2" depth="0.22" position="0 1.6 4.2" material="color:#3e2615;roughness:0.9"></a-box>
+    <a-box width="0.22" height="3.2" depth="0.22" position="0 1.6 7" material="color:#3e2615;roughness:0.9"></a-box>
+
+    <!-- Curved oak hull ribs along port and starboard -->
+    <!-- Port ribs (x = -3.15) -->
+    <a-cylinder radius="0.16" height="3.2" position="-3.15 1.6 -7" rotation="0 0 -12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="-3.15 1.6 -4.2" rotation="0 0 -12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="-3.15 1.6 -1.4" rotation="0 0 -12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="-3.15 1.6 1.4" rotation="0 0 -12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="-3.15 1.6 4.2" rotation="0 0 -12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="-3.15 1.6 7" rotation="0 0 -12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+
+    <!-- Starboard ribs (x = +3.15) -->
+    <a-cylinder radius="0.16" height="3.2" position="3.15 1.6 -7" rotation="0 0 12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="3.15 1.6 -4.2" rotation="0 0 12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="3.15 1.6 -1.4" rotation="0 0 12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="3.15 1.6 1.4" rotation="0 0 12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="3.15 1.6 4.2" rotation="0 0 12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+    <a-cylinder radius="0.16" height="3.2" position="3.15 1.6 7" rotation="0 0 12" material="color:#2d1b0d;roughness:1"></a-cylinder>
+
+    <!-- Hull walls: curved inner planking (thick boxes acting as walls) -->
+    <a-box width="0.3" height="3.3" depth="17.6" position="-3.3 1.6 0" material="color:#332011;roughness:0.95"></a-box>
+    <a-box width="0.3" height="3.3" depth="17.6" position="3.3 1.6 0" material="color:#332011;roughness:0.95"></a-box>
+
+    <!-- Fore and aft bulkheads -->
+    <a-box width="6.6" height="3.3" depth="0.3" position="0 1.6 -8.7" material="color:#2a1b10;roughness:0.95"></a-box>
+    <a-box width="6.6" height="3.3" depth="0.3" position="0 1.6 8.7" material="color:#2a1b10;roughness:0.95"></a-box>
+
+    <!-- Companionway Hatch & Ladder to Main Deck (at z = +1.6 rel, world z = 79.6) -->
+    <a-entity id="holdLadder" position="0 0 1.6">
+      <!-- Hatch opening in ceiling -->
+      <a-box width="1.6" height="0.1" depth="1.4" position="0 3.2 0" material="color:#110b07"></a-box>
+      <a-light type="point" color="#ffeecc" intensity="0.9" distance="5" position="0 3.1 0"></a-light>
+      <!-- Shaft of daylight down from deck -->
+      <a-cone radius-top="0.4" radius-bottom="1.2" height="3.0" position="0 1.5 0" material="color:#ffeecc;opacity:0.12;transparent:true;depthWrite:false"></a-cone>
+      <!-- Wooden ladder uprights -->
+      <a-box width="0.08" height="3.3" depth="0.08" position="-0.4 1.55 -0.1" rotation="10 0 0" material="color:#5a3d22;roughness:1"></a-box>
+      <a-box width="0.08" height="3.3" depth="0.08" position="0.4 1.55 -0.1" rotation="10 0 0" material="color:#5a3d22;roughness:1"></a-box>
+      <!-- Ladder rungs -->
+      <a-cylinder radius="0.03" height="0.75" position="0 0.35 -0.32" rotation="0 0 90" material="color:#7c5731;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.03" height="0.75" position="0 0.75 -0.25" rotation="0 0 90" material="color:#7c5731;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.03" height="0.75" position="0 1.15 -0.18" rotation="0 0 90" material="color:#7c5731;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.03" height="0.75" position="0 1.55 -0.11" rotation="0 0 90" material="color:#7c5731;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.03" height="0.75" position="0 1.95 -0.04" rotation="0 0 90" material="color:#7c5731;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.03" height="0.75" position="0 2.35 0.03" rotation="0 0 90" material="color:#7c5731;roughness:1"></a-cylinder>
+      <a-cylinder radius="0.03" height="0.75" position="0 2.75 0.10" rotation="0 0 90" material="color:#7c5731;roughness:1"></a-cylinder>
+      <!-- Clickable ladder to ascend back to deck -->
+      <a-box class="clickable hold-exit-hit" width="1.4" height="2.8" depth="1.0" position="0 1.4 -0.1" material="opacity:0;depthWrite:false"></a-box>
+      <a-text face-camera value="Ascend to Main Deck" align="center" color="#ffd080" width="2.2" position="0 1.8 0.4"></a-text>
+    </a-entity>
+
+    <!-- Swinging Brass Ship Lanterns with flickering light -->
+    <a-entity position="0 3.0 -4.2" animation="property:rotation;from:2 0 -3;to:-2 0 3;dur:3400;dir:alternate;loop:true;easing:easeInOutSine">
+      <a-cylinder radius="0.015" height="0.6" position="0 -0.3 0" material="color:#caa15c;metalness:0.8"></a-cylinder>
+      <a-cylinder radius="0.12" height="0.25" position="0 -0.65 0" material="color:#caa15c;metalness:0.8;roughness:0.3"></a-cylinder>
+      <a-cylinder radius="0.09" height="0.2" position="0 -0.65 0" material="color:#fff0b0;emissive:#ffaa33;emissiveIntensity:1.5;opacity:0.85;transparent:true"></a-cylinder>
+      <a-light type="point" color="#ff9f43" intensity="1.2" distance="7" position="0 -0.65 0" animation="property:intensity;from:1.0;to:1.35;dur:650;dir:alternate;loop:true;easing:easeInOutSine"></a-light>
+    </a-entity>
+
+    <a-entity position="0 3.0 4.2" animation="property:rotation;from:-3 0 2;to:3 0 -2;dur:3800;dir:alternate;loop:true;easing:easeInOutSine">
+      <a-cylinder radius="0.015" height="0.6" position="0 -0.3 0" material="color:#caa15c;metalness:0.8"></a-cylinder>
+      <a-cylinder radius="0.12" height="0.25" position="0 -0.65 0" material="color:#caa15c;metalness:0.8;roughness:0.3"></a-cylinder>
+      <a-cylinder radius="0.09" height="0.2" position="0 -0.65 0" material="color:#fff0b0;emissive:#ffaa33;emissiveIntensity:1.5;opacity:0.85;transparent:true"></a-cylinder>
+      <a-light type="point" color="#ff9f43" intensity="1.1" distance="7" position="0 -0.65 0" animation="property:intensity;from:0.95;to:1.25;dur:800;dir:alternate;loop:true;easing:easeInOutSine"></a-light>
+    </a-entity>
+
+    <!-- Crew Hammocks slung near bulkheads -->
+    <a-entity position="-1.9 1.8 -6.5" rotation="0 15 0" animation="property:rotation;from:0 15 -4;to:0 15 4;dur:3600;dir:alternate;loop:true;easing:easeInOutSine">
+      <a-cylinder radius="0.02" height="0.8" position="-0.9 0.4 0" rotation="0 0 -45" material="color:#7a5832"></a-cylinder>
+      <a-cylinder radius="0.02" height="0.8" position="0.9 0.4 0" rotation="0 0 45" material="color:#7a5832"></a-cylinder>
+      <a-sphere radius="1.1" scale="1.0 0.28 0.45" position="0 0 0" theta-length="180" rotation="180 0 0" material="color:#cfbe97;side:double;roughness:0.9"></a-sphere>
+      <a-box width="0.35" height="0.08" depth="0.25" position="-0.5 0.1 0" material="color:#8b7355"></a-box>
+    </a-entity>
+    
+    <a-entity position="1.9 1.8 -6.2" rotation="0 -10 0" animation="property:rotation;from:0 -10 3;to:0 -10 -3;dur:3300;dir:alternate;loop:true;easing:easeInOutSine">
+      <a-cylinder radius="0.02" height="0.8" position="-0.9 0.4 0" rotation="0 0 -45" material="color:#7a5832"></a-cylinder>
+      <a-cylinder radius="0.02" height="0.8" position="0.9 0.4 0" rotation="0 0 45" material="color:#7a5832"></a-cylinder>
+      <a-sphere radius="1.1" scale="1.0 0.28 0.45" position="0 0 0" theta-length="180" rotation="180 0 0" material="color:#bda87e;side:double;roughness:0.9"></a-sphere>
+    </a-entity>
+
+    <!-- Cargo Stacks: Barrels, Casks, Crates, and Ballast -->
+    <!-- Starboard Cargo Pile -->
+    <a-entity position="2.2 0 -2.5">
+      <a-box width="1.2" height="1.0" depth="1.2" position="0 0.5 0" material="color:#5c3a1e;roughness:0.9"></a-box>
+      <a-box width="1.22" height="0.05" depth="1.22" position="0 0.8 0" material="color:#221c17;roughness:0.6"></a-box>
+      <a-box width="1.22" height="0.05" depth="1.22" position="0 0.2 0" material="color:#221c17;roughness:0.6"></a-box>
+      <a-box width="0.9" height="0.8" depth="0.9" position="0.1 1.4 0.1" rotation="0 12 0" material="color:#704826;roughness:0.9"></a-box>
+      <a-box width="0.92" height="0.04" depth="0.92" position="0.1 1.65 0.1" rotation="0 12 0" material="color:#221c17"></a-box>
+      
+      <a-cylinder radius="0.35" height="0.9" position="-0.8 0.45 0.3" material="color:#6b4423;roughness:0.85"></a-cylinder>
+      <a-torus radius="0.35" radius-tubular="0.02" position="-0.8 0.7 0.3" rotation="90 0 0" material="color:#1a1510"></a-torus>
+      <a-torus radius="0.35" radius-tubular="0.02" position="-0.8 0.2 0.3" rotation="90 0 0" material="color:#1a1510"></a-torus>
+      <a-cylinder radius="0.32" height="0.85" position="-0.7 0.42 -0.6" rotation="90 0 20" material="color:#82552d;roughness:0.85"></a-cylinder>
+      <a-cylinder radius="0.3" height="0.8" position="-0.7 1.05 -0.1" material="color:#6b4423;roughness:0.85"></a-cylinder>
+    </a-entity>
+
+    <!-- Port Cargo Pile & Coiled Ropes -->
+    <a-entity position="-2.2 0 -2.5">
+      <a-box width="1.1" height="0.9" depth="1.4" position="0 0.45 0" material="color:#50331a;roughness:0.9"></a-box>
+      <a-box width="0.85" height="0.75" depth="0.85" position="0.1 1.25 -0.2" rotation="0 -8 0" material="color:#6e4726;roughness:0.9"></a-box>
+      <a-torus radius="0.45" radius-tubular="0.08" position="0.7 0.08 0.6" rotation="90 0 0" material="color:#9e7846;roughness:1"></a-torus>
+      <a-torus radius="0.32" radius-tubular="0.07" position="0.7 0.16 0.6" rotation="90 0 0" material="color:#8a6638;roughness:1"></a-torus>
+      <a-torus radius="0.18" radius-tubular="0.06" position="0.7 0.24 0.6" rotation="90 0 0" material="color:#8a6638;roughness:1"></a-torus>
+    </a-entity>
+
+    <!-- Scurrying Ship Rats -->
+    <a-entity position="2.2 0.05 1.5" animation="property:position;from:2.2 0.05 1.5;to:2.6 0.05 3.5;dur:2400;dir:alternate;loop:true;easing:easeInOutSine">
+      <a-sphere radius="0.08" scale="0.8 0.6 1.6" material="color:#332924"></a-sphere>
+      <a-sphere radius="0.04" position="0 0.04 0.12" material="color:#2a201a"></a-sphere>
+      <a-cylinder radius="0.008" height="0.22" position="0 0.02 -0.18" rotation="45 0 0" material="color:#856455"></a-cylinder>
+    </a-entity>
+
+    <!-- ================= SUNKEN BILGE TROUGH & KEEL ================= -->
+    <a-entity id="keelTrough" position="0 0 -2.0">
+      <!-- Trough floor recessed below deck level -->
+      <a-box width="1.6" height="0.1" depth="6.2" position="0 -0.85 0" material="color:#1a110a;roughness:1"></a-box>
+      <!-- Trough wooden coaming / sidewalls -->
+      <a-box width="0.15" height="0.9" depth="6.2" position="-0.85 -0.4 0" material="color:#2d1b0d;roughness:1"></a-box>
+      <a-box width="0.15" height="0.9" depth="6.2" position="0.85 -0.4 0" material="color:#2d1b0d;roughness:1"></a-box>
+      <a-box width="1.6" height="0.9" depth="0.15" position="0 -0.4 -3.1" material="color:#2d1b0d;roughness:1"></a-box>
+      <a-box width="1.6" height="0.9" depth="0.15" position="0 -0.4 3.1" material="color:#2d1b0d;roughness:1"></a-box>
+
+      <!-- The Murky Bilge Water (animates down when pumped dry) -->
+      <a-entity id="bilgeWater" position="0 -0.15 0">
+        <a-plane width="1.55" height="6.0" rotation="-90 0 0" material="color:#1d382b;opacity:0.88;transparent:true;roughness:0.1;metalness:0.3"
+                 animation="property:position;from:0 0 0;to:0 0.02 0;dur:1800;dir:alternate;loop:true;easing:easeInOutSine"></a-plane>
+        <a-light type="point" color="#2ecc71" intensity="0.25" distance="3" position="0 0.2 0"></a-light>
+      </a-entity>
+
+      <!-- Submerged Quartermaster's Strongbox at bottom of keel -->
+      <a-entity id="holdChestGroup" position="0 -0.7 0.8">
+        <a-entity id="holdChest">
+          <a-box width="0.9" height="0.45" depth="0.6" position="0 0.225 0" material="color:#4a321a;roughness:0.85"></a-box>
+          <a-box width="0.92" height="0.46" depth="0.06" position="0 0.225 -0.2" material="color:#1a1918;metalness:0.8"></a-box>
+          <a-box width="0.92" height="0.46" depth="0.06" position="0 0.225 0.2" material="color:#1a1918;metalness:0.8"></a-box>
+          <a-entity id="holdChestLid" position="0 0.45 -0.3">
+            <a-cylinder radius="0.3" height="0.9" theta-length="180" rotation="0 0 90" position="0 0 0.3" material="color:#5a3d20;roughness:0.85"></a-cylinder>
+            <a-box width="0.92" height="0.06" depth="0.6" position="0 0 0.3" material="color:#3a2512"></a-box>
+            <a-box width="0.14" height="0.14" depth="0.05" position="0 -0.04 0.61" material="color:#ffd700;metalness:0.85;roughness:0.25"></a-box>
+          </a-entity>
+          <a-sphere radius="0.04" position="-0.35 0.15 0.31" material="color:#52796f"></a-sphere>
+          <a-sphere radius="0.035" position="-0.38 0.28 0.31" material="color:#84a98c"></a-sphere>
+          <a-sphere radius="0.04" position="0.3 0.1 0.31" material="color:#52796f"></a-sphere>
+        </a-entity>
+        
+        <!-- Chest Interaction Hitbox -->
+        <a-box class="clickable strongbox-hit" width="1.1" height="0.8" depth="0.8" position="0 0.4 0" material="opacity:0;depthWrite:false"></a-box>
+        <a-text id="holdChestPrompt" face-camera value="Open Strongbox" align="center" color="#ffd080" width="1.8" position="0 0.95 0" visible="false"></a-text>
+
+        <!-- THE NAVIGATOR'S GOLDEN ASTROLABE -->
+        <a-entity id="astrolabeRelic" visible="false" position="0 0.65 0">
+          <a-entity animation="property:position;from:0 0.65 0;to:0 0.78 0;dur:1400;dir:alternate;loop:true;easing:easeInOutSine"
+                    animation__spin="property:rotation;from:0 0 0;to:0 360 0;dur:8000;loop:true;easing:linear">
+            <a-torus radius="0.26" radius-tubular="0.02" material="color:#ffd700;metalness:0.95;roughness:0.2;emissive:#caa15c;emissiveIntensity:0.4"></a-torus>
+            <a-torus radius="0.19" radius-tubular="0.015" rotation="60 45 0" material="color:#e6b800;metalness:0.95;roughness:0.2"></a-torus>
+            <a-torus radius="0.13" radius-tubular="0.012" rotation="-45 60 0" material="color:#ffae00;metalness:0.95;roughness:0.2"></a-torus>
+            <a-cylinder radius="0.015" height="0.55" rotation="90 30 0" material="color:#caa15c;metalness:0.9"></a-cylinder>
+            <a-sphere radius="0.04" material="color:#ffffff;emissive:#ffd700;emissiveIntensity:1.8"></a-sphere>
+            <a-torus radius="0.06" radius-tubular="0.012" position="0 0.32 0" material="color:#ffd700;metalness:0.95"></a-torus>
+            <a-light type="point" color="#ffd700" intensity="1.5" distance="4"></a-light>
+          </a-entity>
+          <a-sphere class="clickable astrolabe-hit" radius="0.45" material="opacity:0;depthWrite:false"></a-sphere>
+          <a-text face-camera value="Claim Golden Astrolabe" align="center" color="#ffd700" width="2.4" position="0 1.25 0"></a-text>
+        </a-entity>
+      </a-entity>
+    </a-entity>
+
+    <!-- ================= THE DOUBLE-ACTION CAST-IRON BILGE PUMP ================= -->
+    <a-entity id="bilgePump" position="-1.2 0 -2.0">
+      <a-box width="0.7" height="0.2" depth="0.7" position="0 0.1 0" material="color:#1e1e22;metalness:0.7;roughness:0.4"></a-box>
+      <a-cylinder radius="0.18" height="1.4" position="-0.16 0.8 0" material="color:#2a2a30;metalness:0.6;roughness:0.4"></a-cylinder>
+      <a-cylinder radius="0.18" height="1.4" position="0.16 0.8 0" material="color:#2a2a30;metalness:0.6;roughness:0.4"></a-cylinder>
+      <a-cylinder radius="0.07" height="0.5" position="0.32 0.7 0" rotation="0 0 -50" material="color:#caa15c;metalness:0.8;roughness:0.3"></a-cylinder>
+      <a-cylinder radius="0.09" height="0.08" position="-0.16 1.45 0" material="color:#ffd700;metalness:0.85"></a-cylinder>
+      <a-cylinder radius="0.09" height="0.08" position="0.16 1.45 0" material="color:#ffd700;metalness:0.85"></a-cylinder>
+      <a-box width="0.1" height="0.5" depth="0.1" position="0 1.65 0" material="color:#1e1e22;metalness:0.7"></a-box>
+      <a-entity id="pumpHandle" position="0 1.8 0">
+        <a-box width="0.12" height="0.08" depth="1.8" position="0 0 0" material="color:#8a5d3b;roughness:0.9"></a-box>
+        <a-cylinder radius="0.04" height="0.35" position="0 0 -0.85" rotation="0 0 90" material="color:#b58356;roughness:0.8"></a-cylinder>
+        <a-cylinder radius="0.04" height="0.35" position="0 0 0.85" rotation="0 0 90" material="color:#b58356;roughness:0.8"></a-cylinder>
+        <a-cylinder radius="0.07" height="0.16" rotation="0 0 90" material="color:#caa15c;metalness:0.85"></a-cylinder>
+        <a-cylinder radius="0.025" height="0.5" position="-0.16 -0.22 -0.2" material="color:#b0b0b8;metalness:0.9"></a-cylinder>
+        <a-cylinder radius="0.025" height="0.5" position="0.16 -0.22 0.2" material="color:#b0b0b8;metalness:0.9"></a-cylinder>
+      </a-entity>
+      <a-box class="clickable pump-hit" width="1.2" height="2.0" depth="2.0" position="0 1.0 0" material="opacity:0;depthWrite:false"></a-box>
+      <a-text id="pumpLabel" face-camera value="Work Bilge Pump" align="center" color="#ffd080" width="2.2" position="0 2.2 0"></a-text>
     </a-entity>
   </a-entity>
 
@@ -2653,7 +3198,9 @@ world.innerHTML=html;
 /* ================= Scene transitions ================= */
 var SCENES={
   ship:{label:'Ship Deck', icon:'&#9875;', pos:{x:1.6,y:3.3,z:84}, rot:{x:0,y:180,z:0}, hint:"Climb to the quarterdeck and take the helm to set sail."},
+  hold:{label:'Lower Deck & Hold', icon:'&#129520;', pos:{x:0,y:-58.4,z:78}, rot:{x:0,y:180,z:0}, hint:"Work the bilge pump to drain the keel and search the cargo hold."},
   island:{label:'Treasure Island', icon:'&#127966;', pos:{x:0,y:1.6,z:9}, rot:{x:0,y:0,z:0}, hint:"Read all 6 bottles, mark the map (T), then dig only where the gold is."},
+  cave:{label:'Smuggler\'s Sea Cave', icon:'&#9968;', pos:{x:0,y:-38.4,z:-105}, rot:{x:0,y:0,z:0}, hint:"Solve the brazier riddle to raise the iron portcullis and claim the smugglers' relic."},
   lighthouse:{label:'Lighthouse Gallery', icon:'&#128752;', pos:{x:0,y:8.85,z:-14.0}, rot:{x:-5,y:180,z:0}, hint:"Complete the keeper's 3 missions (bottom-left)."},
   tower:{label:'Lighthouse Stairs', icon:'&#128367;', pos:{x:-0.49,y:-78.4,z:-16.42}, rot:{x:10,y:-71,z:0}, hint:"Climb the spiral stairs to the lamp room - read the keeper's journal on the way."}
 };
@@ -2666,10 +3213,13 @@ function setLoc(){
 function showScene(name){
   // the galleon stays visible everywhere: from the island and the gallery you can see her riding at anchor
   $('scene-ship').setAttribute('visible', true);
-  var sunZ = name==='ship' ? 83 : name==='lighthouse' ? -8 : name==='tower' ? TOWER.z : 0, sunY = name==='tower' ? TOWER.y : 0;
+  var sunZ = name==='ship' ? 83 : name==='hold' ? HOLD.z : name==='lighthouse' ? -8 : name==='tower' ? TOWER.z : name==='cave' ? CAVE.z : 0;
+  var sunY = name==='hold' ? HOLD.y : name==='tower' ? TOWER.y : name==='cave' ? CAVE.y : 0;
   $('sunTarget').setAttribute('position', {x:0, y:sunY, z:sunZ});
   $('sunLight').setAttribute('position', {x:18, y:sunY+24, z:sunZ+12});
   $('scene-tower').setAttribute('visible', name==='tower');
+  $('scene-cave').setAttribute('visible', name==='cave');
+  if($('scene-hold')) $('scene-hold').setAttribute('visible', name==='hold');
   $('climbHud').classList.toggle('show', name==='tower');
   if(name!=='tower'){ $('pageModal').classList.remove('show'); lastClimbStep=-1; }
   // the island stays visible from the gallery: it's the view you climbed up for
@@ -2680,7 +3230,7 @@ function showScene(name){
   cargoPanelVisible(name==='ship');
   $('tmapBtn').classList.toggle('show', name==='island');
   if(name!=='island' && typeof tmapClose==='function'){ tmapClose(); if(DIG.active) endDig(); }
-  if(typeof startSurf==='function'){ if(name==='island'||name==='lighthouse') startSurf(); else stopSurf(); }
+  if(typeof startSurf==='function'){ if(name==='island'||name==='lighthouse'||name==='cave') startSurf(); else stopSurf(); }
   if($('gunTargets')) $('gunTargets').setAttribute('visible', name==='ship');
   if(name!=='ship' && typeof leaveGun==='function'){ leaveGun(); closeTrophies(); }
   if(typeof missionPanelVisible==='function') missionPanelVisible(name==='lighthouse');
@@ -2718,7 +3268,9 @@ function travelTo(target, spawn){
     if(target==='island' && treasureCount>=totalTreasures) statusbar.textContent = 'The hoards are found - climb the lighthouse and light the lamp. Your rowboat waits on the landing beach.';
     else if(target==='island') statusbar.textContent = diggingUnlocked ? 'Deduce which sites hide real gold, then dig. Your treasure map is on T.' : 'Find and read the 6 message bottles. Your treasure map is on T.';
     else if(target==='ship') statusbar.textContent = unlocked.island ? 'Take the helm on the quarterdeck to sail, or row ashore in the ship\'s boat in the waist.' : 'Climb to the quarterdeck and take the helm to set sail.';
+    else if(target==='hold') statusbar.textContent = HOLD.drained ? (HOLD.boxClaimed ? 'The hold is dry and quiet. The companionway ladder leads back to the main deck.' : 'The keel is pumped dry! Inspect the revealed strongbox.') : 'The ship\'s cargo hold: creaking timbers and sloshing bilge water. Work the bilge pump to drain the keel.';
     else if(target==='tower') statusbar.textContent = 'Walk up the spiral stairs (W). The keeper\'s journal pages are pinned along the wall.';
+    else if(target==='cave') statusbar.textContent = CAVE.idolClaimed ? 'The smugglers\' vault lies open before you.' : 'The Smuggler\'s Sea Cave: study the stone riddle tablet and light the braziers in order.';
     else statusbar.textContent = 'Welcome, keeper! Use the spyglass (left) and the logbook (right) to start your missions.';
     setTimeout(function(){ sceneFade.classList.remove('show'); }, 80);
   }, 650);
@@ -2727,13 +3279,13 @@ function travelTo(target, spawn){
 /* ===== Map modal ===== */
 var mapModal=$('mapModal'), mapCards=$('mapCards');
 function renderMap(){
-  var order=['ship','island','lighthouse'];
+  var order=['ship','hold','island','cave','lighthouse'];
   var html='';
   order.forEach(function(k){
     var s=SCENES[k], lock=unlocked[k];
     var cls='mapCard'+(lock?'':' locked')+(k===sceneState?' current':'');
     var desc = lock ? (k===sceneState ? "You are here" : "Click to travel here") :
-               (k==='island' ? "Set sail from the ship first" : "Find all 3 treasures to unlock");
+               (k==='hold' ? "Explore below decks on the galleon" : k==='island' ? "Set sail from the ship first" : k==='cave' ? "Find the sea arch on the island" : "Find all 3 treasures to unlock");
     html+='<div class="'+cls+'" data-k="'+k+'"><div class="icon">'+s.icon+'</div><div class="info"><div class="name">'+s.label+'</div><div class="desc">'+desc+'</div></div></div>';
   });
   mapCards.innerHTML=html;
@@ -2750,7 +3302,9 @@ $('mapBtn').addEventListener('click', openMap);
 $('mapCloseBtn').addEventListener('click', closeMap);
 document.addEventListener('keydown', function(e){
   if(e.key==='Escape'){ closeMap(); $('confirmNo') && confirmModal.classList.contains('show') && $('confirmNo').click(); }
-  if((e.key==='m'||e.key==='M') && !confirmModal.classList.contains('show') && !$('quizModal').classList.contains('show')) openMap();
+  if((e.key==='m'||e.key==='M') && !confirmModal.classList.contains('show') && !$('quizModal').classList.contains('show')) {
+    mapModal.classList.contains('show') ? closeMap() : openMap();
+  }
 });
 
 /* ===== Ship wheel: set sail ===== */
@@ -2813,7 +3367,8 @@ function rowTo(target, boatEl, msg, launch){
   [0,450,900].forEach(function(d){ setTimeout(function(){ noiseBurst(.4,1500,500,.25,'bandpass'); },d); });                                      // oar strokes
   setTimeout(function(){
     travelTo(target, target==='ship' ? {x:3.4,y:3.3,z:86,pitch:0,yaw:90}                                   // climbing aboard at the waist
-                                     : {x:1.8,y:islandHeight(1.8,16)+1.6,z:16,pitch:0,yaw:0});            // stepping ashore on the landing beach
+                     : target==='cave' ? {x:0, y:-38.4, z:-105, pitch:0, yaw:0}
+                     : (sceneState==='cave' ? {x:-14.8, y:islandHeight(-14.8,-4.5)+1.6, z:-4.5, pitch:0, yaw:-105} : {x:1.8,y:islandHeight(1.8,16)+1.6,z:16,pitch:0,yaw:0}));
     setTimeout(function(){ boatEl.removeAttribute('animation__row'); boatEl.object3D.position.copy(home); rowing=false; },900);
   },1100);
 }
@@ -3018,11 +3573,13 @@ function finale(){
   for(var i=0;i<6;i++) (function(i){ setTimeout(function(){ fx.burst((Math.random()-.5)*14, 13+Math.random()*4, -3+Math.random()*8, cols[i%cols.length]); }, i*350); })(i);
 
   // rank: the lighthouse missions, plus the optional deeds of the voyage
-  var pages=journalRead.filter(Boolean).length, total=LH.quizStars+3+(bonusGranted?1:0)+(GUN.hits>=GUN.total?1:0)+(pages>=3?1:0);
-  var rank = total>=9 ? 'Master Navigator' : total>=6 ? 'First Mate' : 'Deckhand', s3 = total>=9 ? 3 : total>=6 ? 2 : 1, stars='';
+  var pages=journalRead.filter(Boolean).length, total=LH.quizStars+3+(bonusGranted?1:0)+(GUN.hits>=GUN.total?1:0)+(pages>=3?1:0)+(CAVE.idolClaimed?1:0)+(HOLD.boxClaimed?1:0);
+  var rank = total>=11 ? 'Legendary Buccaneer' : total>=8 ? 'Master Navigator' : total>=5 ? 'First Mate' : 'Deckhand', s3 = total>=10 ? 3 : total>=7 ? 2 : 1, stars='';
   for(var k=0;k<3;k++) stars+= k<s3 ? '\u2605' : '\u2606';
   $('finaleStars').textContent=stars;
   var rows=[['Pirate hoards recovered',treasureCount+' / 3'],['Shovels left',attempts+' / '+maxAttempts],['Deck cargo secured',cargoLocked+' / 3'],
+            ['Smuggler\'s cursed relic',CAVE.idolClaimed?'Claimed':'Unfound'],
+            ['Navigator\'s golden astrolabe',HOLD.boxClaimed?'Recovered':'Lost in bilge'],
             ['Gunnery targets sunk',GUN.hits+' / '+GUN.total],['Keeper\'s journal pages',pages+' / 3'],['Sights logged at sea','3 / 3'],['Quiz answers, first try',LH.quizStars+' / 4']];
   $('finaleText').innerHTML='The bell rings out, the great lamp blazes and your crew answers from the galleon.'+
     '<table>'+rows.map(function(r2){ return '<tr><td>'+r2[0]+'</td><td>'+r2[1]+'</td></tr>'; }).join('')+'</table>Rank: <b>'+rank+'</b>';
@@ -3652,6 +4209,8 @@ function trophyState(){
     {ico:'&#127919;', name:'Master Gunner', desc:'Sink all 6 target barrels with the ship\'s cannons.', got:GUN.hits>=GUN.total, prog:GUN.hits+' / '+GUN.total},
     {ico:'&#127870;', name:'Bottle Reader', desc:'Read all 6 messages in bottles on the island.', got:clueCount>=totalClues, prog:clueCount+' / '+totalClues},
     {ico:'&#128176;', name:'Pirate\'s Hoard', desc:'Dig up the 3 genuine treasure chests.', got:treasureCount>=totalTreasures, prog:treasureCount+' / '+totalTreasures},
+    {ico:'&#128507;', name:'Smuggler\'s Secret', desc:'Solve the sea cave riddle and claim the Cursed Skull Idol.', got:!!CAVE.idolClaimed, prog:CAVE.idolClaimed?'done':'-'},
+    {ico:'&#129517;', name:'Master of the Hold', desc:'Pump the flooded keel dry and recover the Golden Astrolabe.', got:!!HOLD.boxClaimed, prog:HOLD.boxClaimed?'done':'-'},
     {ico:'&#128301;', name:'Keeper\'s Honour', desc:'Complete the lighthouse keeper\'s missions.', got:!!LH.bellRung, prog:LH.bellRung?'done':'-'}
   ];
 }
@@ -3659,6 +4218,8 @@ function refreshCabinet(){
   $('troph-anchor').setAttribute('visible', !!bonusGranted);
   $('troph-gunner').setAttribute('visible', GUN.hits>=GUN.total);
   $('troph-bottle').setAttribute('visible', clueCount>=totalClues);
+  $('troph-idol').setAttribute('visible', !!CAVE.idolClaimed);
+  if($('troph-astrolabe')) $('troph-astrolabe').setAttribute('visible', !!HOLD.boxClaimed);
   $('troph-spyglass').setAttribute('visible', !!LH.bellRung);
   for(var i=1;i<=3;i++) $('troph-gold-'+i).setAttribute('visible', treasureCount>=i);
 }
@@ -3699,6 +4260,7 @@ function tmapGlyph(g,type,x,z){
     case 'boat': g.fillStyle='#7a5230'; g.beginPath(); g.ellipse(0,0,4,9,-.4,0,6.283); g.fill(); break;
     case 'bottle': case 'bottleRead': g.fillStyle=type==='bottle'?'#2e9e5b':'#7d8a80'; g.fillRect(-3,-4,6,9); g.fillRect(-1.5,-8,3,4);
       if(type==='bottleRead'){ g.strokeStyle='#1e7a3a'; g.lineWidth=2.5; g.beginPath(); g.moveTo(5,-1); g.lineTo(8,3); g.lineTo(14,-6); g.stroke(); } break;
+    case 'cave': g.fillStyle='#2c3038'; g.beginPath(); g.arc(0,0,8,Math.PI,0); g.fill(); g.strokeStyle='#1a1d22'; g.lineWidth=2; g.stroke(); break;
     case 'site1': g.strokeStyle='#6b4a2b'; g.beginPath(); g.moveTo(0,8); g.lineTo(1,-12); g.moveTo(1,-6); g.lineTo(-6,-11); g.moveTo(1,-9); g.lineTo(7,-14); g.stroke(); break;
     case 'site2': g.strokeStyle='#6b4a2b'; g.beginPath(); g.moveTo(0,8); g.quadraticCurveTo(-2,-2,2,-12); g.stroke(); g.strokeStyle='#3f7f2a'; g.lineWidth=2.5;
       [-2.6,-1.9,-1.2,-0.5,0.2].forEach(function(a){ g.beginPath(); g.moveTo(2,-12); g.quadraticCurveTo(2+Math.cos(a)*9,-12+Math.sin(a)*9-3,2+Math.cos(a)*13,-12+Math.sin(a)*13+3); g.stroke(); }); break;
@@ -3735,6 +4297,7 @@ function drawTreasureMap(){
   tmapGlyph(g,'lighthouse',LIGHTHOUSE.x,LIGHTHOUSE.z); tmapLabel(g,'Lighthouse',LIGHTHOUSE.x,LIGHTHOUSE.z-2.6,11,'#3a2810');
   tmapGlyph(g,'tent',-3.2,-5); tmapLabel(g,'Camp',-3.2,-6.3,11,'#3a2810');
   tmapGlyph(g,'boat',3.2,18.1); tmapLabel(g,'Landing',5.6,18.6,11,'#3a2810');
+  tmapGlyph(g,'cave',-16.2,-4.5); tmapLabel(g,'Sea Cave',-16.2,-2.1,10,'#1f7a68');
   g.font='italic 12px Georgia'; g.fillStyle='#3a2810'; g.textAlign='center'; g.fillText('to the galleon ↓',W/2,W-10); g.textAlign='left';
   // message bottles
   document.querySelectorAll('.bottle-group').forEach(function(b){ var p=b.object3D.position; tmapGlyph(g,b.dataset.read==='1'?'bottleRead':'bottle',p.x,p.z); });
@@ -3945,6 +4508,170 @@ document.querySelectorAll('.tower-door').forEach(function(d){
   });
 });
 document.querySelector('.hatch-hit').addEventListener('click',function(){ if(sceneState==='lighthouse') travelTo('tower',towerSpawn('top')); });
+
+/* ================= Smuggler's Sea Cave Puzzle & Interactions ================= */
+document.querySelectorAll('.brazier-hit').forEach(function(hit){
+  hit.addEventListener('click', function(){
+    if(sceneState !== 'cave' || CAVE.gateOpen) return;
+    var b = hit.closest('.brazier'), type = b.dataset.type;
+    var flame = b.querySelector('.brazier-flame');
+    if(flame.getAttribute('visible')) return;
+
+    flame.setAttribute('visible', true);
+    noiseBurst(0.25, 900, 200, 0.45);
+    tone(340, 0, 0.12, 0.15, 'sawtooth');
+
+    var expected = CAVE.seq[CAVE.lit.length];
+    if(type === expected){
+      CAVE.lit.push(type);
+      sfxGood();
+      statusbar.textContent = 'A brazier catches fire! (' + CAVE.lit.length + ' / 4 braziers lit in order)';
+      if(CAVE.lit.length === CAVE.seq.length){
+        CAVE.gateOpen = true;
+        setTimeout(function(){
+          sfxGood();
+          statusbar.textContent = 'The Smuggler\'s Code is fulfilled! The ancient iron portcullis grinds open...';
+          $('cavePortcullis').setAttribute('animation__raise', 'property:position;to:0 3.8 0;dur:2200;easing:easeInOutQuad');
+          tone(120, 0, 0.8, 0.3, 'sawtooth');
+          noiseBurst(1.8, 400, 100, 0.5);
+          shakeScreen();
+        }, 500);
+      }
+    } else {
+      sfxBad();
+      statusbar.textContent = 'The cavern rumbles with cold air... The flame sputters out! Follow the order on the tablet.';
+      setTimeout(function(){
+        document.querySelectorAll('.brazier-flame').forEach(function(f){ f.setAttribute('visible', false); });
+        CAVE.lit = [];
+        tone(140, 0, 0.35, 0.2, 'sawtooth');
+      }, 700);
+    }
+  });
+});
+
+document.querySelector('.tablet-hit').addEventListener('click', function(){
+  if(sceneState !== 'cave') return;
+  statusbar.textContent = 'The Smuggler\'s Code: I. Deep -> II. Flame -> III. Anchor -> IV. Dead.';
+});
+
+document.querySelector('.idol-hit').addEventListener('click', function(){
+  if(sceneState !== 'cave' || CAVE.idolClaimed) return;
+  CAVE.idolClaimed = true;
+  sfxGood();
+  setTimeout(function(){
+    tone(523.25, 0, 0.3, 0.2); tone(659.25, 0.15, 0.3, 0.2); tone(783.99, 0.3, 0.3, 0.2); tone(1046.5, 0.45, 0.8, 0.25);
+  }, 200);
+  sparkleAt($('caveIdol'), 0x55efc4, {n: 80, size: 0.8, speed: 2.8, gravity: 0.5, life: 2.0}, 0.2);
+  $('caveIdol').setAttribute('animation__claim', 'property:scale;to:0.01 0.01 0.01;dur:600;easing:easeInBack');
+  setTimeout(function(){ $('caveIdol').setAttribute('visible', false); }, 650);
+  statusbar.textContent = 'You claimed the Smuggler\'s Cursed Idol! A new trophy has been unlocked in the Captain\'s Trophy Cabinet.';
+  refreshCabinet();
+});
+
+document.querySelector('#caveEntrance .cave-hit').addEventListener('click', function(){
+  if(sceneState !== 'island') return;
+  unlocked.cave = true;
+  rowTo('cave', $('caveEntrance'), 'You row the skiff through the dark sea arch and enter the smuggler\'s grotto...', false);
+});
+
+document.querySelector('#caveExitBoat .cave-boat-hit').addEventListener('click', function(){
+  if(sceneState !== 'cave') return;
+  rowTo('island', $('caveExitBoat'), 'You row back out into the open waters of the island...', false);
+});
+
+/* ================= Lower Deck & Cargo Hold Interactions ================= */
+function operatePump(){
+  if(sceneState !== 'hold') return;
+  if(HOLD.drained){
+    statusbar.textContent = 'The keel trough is already pumped dry! Search the uncovered strongbox.';
+    return;
+  }
+  HOLD.pumped++;
+  var h = $('pumpHandle');
+  h.removeAttribute('animation__stroke');
+  h.setAttribute('animation__stroke', 'property:rotation;from:16 0 0;to:-16 0 0;dur:320;dir:alternate;loop:2;easing:easeInOutSine');
+  noiseBurst(0.35, 650, 140, 0.45);
+  tone(85, 0, 0.25, 0.2, 'sawtooth');
+  
+  var prog = Math.min(1, HOLD.pumped / HOLD.NEED_PUMPS);
+  var waterY = -0.15 - prog * 0.7;
+  $('bilgeWater').setAttribute('animation__drain', 'property:position;to:0 '+waterY.toFixed(2)+' 0;dur:400;easing:easeOutQuad');
+  
+  if(HOLD.pumped < HOLD.NEED_PUMPS){
+    sfxGood();
+    statusbar.textContent = 'Chug-slosh! The bilge pump gushes water through the hull scuppers (' + HOLD.pumped + ' / ' + HOLD.NEED_PUMPS + ' strokes).';
+    $('pumpLabel').setAttribute('value', 'Pump Bilge (' + HOLD.pumped + ' / ' + HOLD.NEED_PUMPS + ')');
+  } else {
+    HOLD.drained = true;
+    sfxGood();
+    setTimeout(function(){
+      tone(440, 0, 0.2, 0.2); tone(554.37, 0.15, 0.2, 0.2); tone(659.25, 0.3, 0.4, 0.25);
+    }, 200);
+    statusbar.textContent = 'The keel trough is pumped dry! The quartermaster\'s submerged strongbox is revealed at the bottom.';
+    $('pumpLabel').setAttribute('value', 'Bilge Keel Dry');
+    $('holdChestPrompt').setAttribute('visible', true);
+  }
+}
+
+document.querySelector('.pump-hit').addEventListener('click', function(){
+  operatePump();
+});
+
+window.addEventListener('keydown', function(e){
+  if(sceneState === 'hold'){
+    if(e.key === ' ' || e.key === 'Spacebar' || e.key === 'e' || e.key === 'E'){
+      var cp = cameraEl.object3D.position;
+      if(Math.hypot(cp.x - (-1.2), cp.z - 76.0) < 3.2){
+        e.preventDefault();
+        operatePump();
+      }
+    }
+  }
+});
+
+document.querySelector('.strongbox-hit').addEventListener('click', function(){
+  if(sceneState !== 'hold') return;
+  if(!HOLD.drained){
+    statusbar.textContent = 'The strongbox is submerged under murky bilge water! Work the bilge pump first.';
+    return;
+  }
+  if(HOLD.boxOpened) return;
+  HOLD.boxOpened = true;
+  sfxGood();
+  $('holdChestLid').setAttribute('animation__open', 'property:rotation;to:-105 0 0;dur:900;easing:easeInOutQuad');
+  tone(160, 0, 0.4, 0.25, 'sawtooth');
+  noiseBurst(0.4, 1100, 300, 0.35);
+  $('holdChestPrompt').setAttribute('visible', false);
+  $('astrolabeRelic').setAttribute('visible', true);
+  $('astrolabeRelic').setAttribute('scale', '0.01 0.01 0.01');
+  $('astrolabeRelic').setAttribute('animation__pop', 'property:scale;to:1 1 1;dur:700;easing:easeOutBack');
+  sparkleAt($('astrolabeRelic'), 0xffd700, {n:60, size:0.7, speed:2.5, gravity:0.4, life:1.8}, 0.3);
+  statusbar.textContent = 'The strongbox opens with a groan! Inside glows the Navigator\'s Golden Astrolabe.';
+});
+
+document.querySelector('.astrolabe-hit').addEventListener('click', function(){
+  if(sceneState !== 'hold' || HOLD.boxClaimed) return;
+  HOLD.boxClaimed = true;
+  sfxGood();
+  setTimeout(function(){
+    tone(587.33, 0, 0.25, 0.2); tone(739.99, 0.15, 0.25, 0.2); tone(880.0, 0.3, 0.25, 0.2); tone(1174.66, 0.45, 0.8, 0.25);
+  }, 180);
+  sparkleAt($('astrolabeRelic'), 0xffd700, {n:90, size:0.9, speed:3.0, gravity:0.5, life:2.2}, 0.2);
+  $('astrolabeRelic').setAttribute('animation__claim', 'property:scale;to:0.01 0.01 0.01;dur:600;easing:easeInBack');
+  setTimeout(function(){ $('astrolabeRelic').setAttribute('visible', false); }, 650);
+  statusbar.textContent = 'You claimed the Navigator\'s Golden Astrolabe! The "Master of the Hold" trophy is added to the Captain\'s Trophy Cabinet.';
+  refreshCabinet();
+});
+
+document.querySelector('#holdHatch .hold-hit').addEventListener('click', function(){
+  if(sceneState !== 'ship') return;
+  travelTo('hold');
+});
+
+document.querySelector('#scene-hold .hold-exit-hit').addEventListener('click', function(){
+  if(sceneState !== 'hold') return;
+  travelTo('ship', {x: 0, y: 1.6, z: 81.2, pitch: 0, yaw: 0});
+});
 
 /* ================= Init ================= */
 updateAttemptsDisplay();
